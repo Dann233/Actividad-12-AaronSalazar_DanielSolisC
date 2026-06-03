@@ -18,8 +18,9 @@ class TaskFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            'name'    => fake()->sentence(3),
             'user_id' => \App\Models\User::factory(),
+            'status'  => \App\Enums\TaskStatus::Pendiente,
         ];
     }
 }

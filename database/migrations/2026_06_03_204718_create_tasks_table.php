@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->enum('status', ['pendiente', 'en_proceso', 'finalizado'])->default('pendiente');
             $table->timestamps();
         });
     }

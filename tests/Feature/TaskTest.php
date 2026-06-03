@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Models\User;
 
@@ -111,6 +112,111 @@ test('destroy deletes a task', function () {
 
 test('destroy returns 404 for non-existent task', function () {
     $response = $this->deleteJson('/api/tasks/999');
+
+    $response->assertNotFound();
+});
+
+// --- Status ---
+
+test('new task has pendiente status by default', function () {
+    $user = User::factory()->create();
+
+    $response = $this->postJson('/api/tasks', [
+        'name'    => 'Tarea sin estado',
+        'user_id' => $user->id,
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonFragment(['status' => TaskStatus::Pendiente->value]);
+});
+
+test('store accepts a custom status', function () {
+    $user = User::factory()->create();
+
+    $response = $this->postJson('/api/tasks', [
+        'name'    => 'Tarea en proceso',
+        'user_id' => $user->id,
+        'status'  => TaskStatus::EnProceso->value,
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonFragment(['status' => TaskStatus::EnProceso->value]);
+});
+
+test('store rejects an invalid status', function () {
+    $user = User::factory()->create();
+
+    $response = $this->postJson('/api/tasks', [
+        'name'    => 'Tarea inválida',
+        'user_id' => $user->id,
+        'status'  => 'invalido',
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['status']);
+});
+
+test('updateStatus changes task to en_proceso', function () {
+    $task = Task::factory()->create(['status' => TaskStatus::Pendiente]);
+
+    $response = $this->patchJson("/api/tasks/{$task->id}/status", [
+        'status' => TaskStatus::EnProceso->value,
+    ]);
+
+    $response->assertOk()
+        ->assertJsonFragment(['status' => TaskStatus::EnProceso->value]);
+
+    $this->assertDatabaseHas('tasks', ['id' => $task->id, 'status' => TaskStatus::EnProceso->value]);
+});
+
+test('updateStatus marks task as finalizado', function () {
+    $task = Task::factory()->create(['status' => TaskStatus::EnProceso]);
+
+    $response = $this->patchJson("/api/tasks/{$task->id}/status", [
+        'status' => TaskStatus::Finalizado->value,
+    ]);
+
+    $response->assertOk()
+        ->assertJsonFragment(['status' => TaskStatus::Finalizado->value]);
+
+    $this->assertDatabaseHas('tasks', ['id' => $task->id, 'status' => TaskStatus::Finalizado->value]);
+});
+
+test('updateStatus marks task back to pendiente', function () {
+    $task = Task::factory()->create(['status' => TaskStatus::Finalizado]);
+
+    $response = $this->patchJson("/api/tasks/{$task->id}/status", [
+        'status' => TaskStatus::Pendiente->value,
+    ]);
+
+    $response->assertOk()
+        ->assertJsonFragment(['status' => TaskStatus::Pendiente->value]);
+});
+
+test('updateStatus rejects an invalid status value', function () {
+    $task = Task::factory()->create();
+
+    $response = $this->patchJson("/api/tasks/{$task->id}/status", [
+        'status' => 'terminado',
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['status']);
+});
+
+test('updateStatus requires status field', function () {
+    $task = Task::factory()->create();
+
+    $response = $this->patchJson("/api/tasks/{$task->id}/status", []);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['status']);
+});
+
+test('updateStatus returns 404 for non-existent task', function () {
+    $response = $this->patchJson('/api/tasks/999/status', [
+        'status' => TaskStatus::Finalizado->value,
+    ]);
 
     $response->assertNotFound();
 });
